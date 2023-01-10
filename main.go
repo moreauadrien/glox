@@ -4,7 +4,9 @@ import (
 	"bufio"
 	"fmt"
 	"glox/errors"
+	"glox/parser"
 	"glox/scanner"
+	"glox/tree"
 	"io"
 	"os"
 )
@@ -66,9 +68,14 @@ func run(source string) {
     s := scanner.NewScanner(source)
     tokens := s.ScanTokens()
 
+    p := parser.NewParser(tokens)
+    expr := p.Parse()
 
-    for _, token := range tokens {
-        fmt.Println(token)
+    if errors.HadError {
+        return
     }
+
+    fmt.Println(tree.AstPrinter{}.Print(expr))
+
 }
 

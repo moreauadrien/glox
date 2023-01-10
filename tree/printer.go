@@ -1,4 +1,4 @@
-package ast
+package tree
 
 import (
 	"fmt"
@@ -8,14 +8,14 @@ import (
 type AstPrinter struct {
 }
 
-func (p AstPrinter) print(expr Expr) string {
+func (p AstPrinter) Print(expr Expr) string {
     s, _ := expr.accept(p).(string)
     
     return s
 }
 
 func (p AstPrinter) visitBinaryExpr(expr *Binary) interface{} {
-    return p.parenthesize(expr.operator.Lexeme, expr.left, expr.right)
+    return p.parenthesize(expr.operator.Lexeme(), expr.left, expr.right)
 }
 
 func (p AstPrinter) visitGroupingExpr(expr *Grouping) interface{} {
@@ -31,7 +31,7 @@ func (p AstPrinter) visitLiteralExpr(expr *Literal) interface{} {
 }
 
 func (p AstPrinter) visitUnaryExpr(expr *Unary) interface{} {
-    return p.parenthesize(expr.operator.Lexeme, expr.right)
+    return p.parenthesize(expr.operator.Lexeme(), expr.right)
 }
 
 func (p AstPrinter) parenthesize(name string, exprs ...Expr) string {

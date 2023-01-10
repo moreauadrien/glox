@@ -1,6 +1,9 @@
 package errors
 
-import "fmt"
+import (
+	"fmt"
+	"glox/token"
+)
 
 var HadError = false
 
@@ -11,4 +14,12 @@ func ErrorAt(line int, message string) {
 func report(line int, where string, message string) {
     fmt.Printf("[line %v] Error%v: %v", line, where, message)
     HadError = true
+}
+
+func Error(t token.Token, message string) {
+    if t.Type() == token.EOF {
+        report(t.Line(), "at end", message)
+    } else {
+        report(t.Line(), " at '" + t.Lexeme() + "'", message)
+    }
 }

@@ -1,4 +1,4 @@
-package ast
+package tree
 
 import "glox/token"
 
@@ -66,5 +66,3 @@ func NewUnary(operator token.Token, right Expr) *Unary {
 func (e *Unary) accept(v Visitor) interface{} {
 	return v.visitUnaryExpr(e)
 }
-
-
