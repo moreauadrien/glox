@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"glox/errors"
 	"glox/token"
-	"glox/tree"
+    "glox/ast"
 )
 
 type Parser struct {
@@ -16,8 +16,8 @@ func NewParser(tokens []token.Token) Parser {
     return Parser{tokens: tokens, current: 0}
 }
 
-func (p *Parser) Parse() []tree.Stmt {
-    statements := []tree.Stmt{}
+func (p *Parser) Parse() []ast.Stmt {
+    statements := []ast.Stmt{}
 
     for !p.isAtEnd() {
         statements = append(statements, p.declaration())
@@ -26,8 +26,8 @@ func (p *Parser) Parse() []tree.Stmt {
     return statements
 }
 
-func (p *Parser) declaration() tree.Stmt {
-    var stmt tree.Stmt
+func (p *Parser) declaration() ast.Stmt {
+    var stmt ast.Stmt
     var err error
 
     if p.match(token.VAR) {
@@ -45,7 +45,7 @@ func (p *Parser) declaration() tree.Stmt {
 }
 
 
-func (p *Parser) statements() (tree.Stmt, error) {
+func (p *Parser) statements() (ast.Stmt, error) {
     if p.match(token.PRINT) {
         return p.printStatement()
     }
@@ -57,13 +57,13 @@ func (p *Parser) statements() (tree.Stmt, error) {
             return nil, err
         }
 
-        return tree.NewBlock(block), nil
+        return ast.NewBlock(block), nil
     }
 
     return p.expressionStatement()
 }
 
-func (p *Parser) printStatement() (tree.Stmt, error) {
+func (p *Parser) printStatement() (ast.Stmt, error) {
     val, err := p.expression()
     if err != nil {
         return nil, err
@@ -73,11 +73,11 @@ func (p *Parser) printStatement() (tree.Stmt, error) {
         return nil, err
     }
 
-    return tree.NewPrint(val), nil
+    return ast.NewPrint(val), nil
 }
 
-func (p *Parser) block() ([]tree.Stmt, error) {
-    statements := []tree.Stmt{}
+func (p *Parser) block() ([]ast.Stmt, error) {
+    statements := []ast.Stmt{}
 
     for !p.check(token.RIGHT_BRACE) && !p.isAtEnd() {
         statements = append(statements, p.declaration())
@@ -90,14 +90,14 @@ func (p *Parser) block() ([]tree.Stmt, error) {
     return statements, nil
 }
 
-func (p *Parser) varDeclaration() (tree.Stmt, error) {
+func (p *Parser) varDeclaration() (ast.Stmt, error) {
     name, err := p.consume(token.IDENTIFIER, "Expect variable name.")
 
     if err != nil {
         return nil, err
     }
 
-    var initializer tree.Expr
+    var initializer ast.Expr
     if p.match(token.EQUAL) {
         initializer, err = p.expression()
 
@@ -112,10 +112,10 @@ func (p *Parser) varDeclaration() (tree.Stmt, error) {
         return nil, err
     }
 
-    return tree.NewVar(name, initializer), nil
+    return ast.NewVar(name, initializer), nil
 }
 
-func (p *Parser) expressionStatement() (tree.Stmt, error){
+func (p *Parser) expressionStatement() (ast.Stmt, error){
     expr, err := p.expression()
 
     if err != nil {
@@ -126,14 +126,14 @@ func (p *Parser) expressionStatement() (tree.Stmt, error){
         return nil, err
     }
 
-    return tree.NewExpression(expr), nil
+    return ast.NewExpression(expr), nil
 }
 
-func (p *Parser) expression() (tree.Expr, error) {
+func (p *Parser) expression() (ast.Expr, error) {
     return p.assignement()
 }
 
-func (p *Parser) assignement() (tree.Expr, error) {
+func (p *Parser) assignement() (ast.Expr, error) {
     expr, err := p.equality()
 
     if err != nil {
@@ -148,9 +148,9 @@ func (p *Parser) assignement() (tree.Expr, error) {
             return nil, err
         }
 
-        if variable, ok := expr.(*tree.Variable); ok {
+        if variable, ok := expr.(*ast.Variable); ok {
             name := variable.Name
-            return tree.NewAssign(name, value), nil
+            return ast.NewAssign(name, value), nil
         }
 
         errors.Error(equals, "Invalid assignement target.")
@@ -159,7 +159,7 @@ func (p *Parser) assignement() (tree.Expr, error) {
     return expr, nil
 }
 
-func (p *Parser) equality() (tree.Expr, error) {
+func (p *Parser) equality() (ast.Expr, error) {
     expr, err := p.comparison()
 
     if err != nil {
@@ -174,13 +174,13 @@ func (p *Parser) equality() (tree.Expr, error) {
             return nil, err
         }
 
-        expr = tree.NewBinary(expr, op, right)
+        expr = ast.NewBinary(expr, op, right)
     }
 
     return expr, nil
 }
 
-func (p *Parser) comparison() (tree.Expr, error) {
+func (p *Parser) comparison() (ast.Expr, error) {
     expr, err := p.term()
     
     if err != nil {
@@ -195,13 +195,13 @@ func (p *Parser) comparison() (tree.Expr, error) {
             return nil, err
         }
 
-        expr = tree.NewBinary(expr, op, right)
+        expr = ast.NewBinary(expr, op, right)
     }
 
     return expr, nil
 }
 
-func (p *Parser) term() (tree.Expr, error) {
+func (p *Parser) term() (ast.Expr, error) {
     expr, err := p.factor()
 
     if err != nil {
@@ -216,13 +216,13 @@ func (p *Parser) term() (tree.Expr, error) {
             return nil, err
         }
 
-        expr = tree.NewBinary(expr, op, right)
+        expr = ast.NewBinary(expr, op, right)
     }
 
     return expr, nil
 }
 
-func (p *Parser) factor() (tree.Expr, error) {
+func (p *Parser) factor() (ast.Expr, error) {
     expr, err := p.unary()
 
     if err != nil {
@@ -237,40 +237,40 @@ func (p *Parser) factor() (tree.Expr, error) {
             return nil, err
         }
 
-        expr = tree.NewBinary(expr, op, right)
+        expr = ast.NewBinary(expr, op, right)
     }
 
     return expr, nil
 }
 
-func (p *Parser) unary() (tree.Expr, error) {
+func (p *Parser) unary() (ast.Expr, error) {
     if p.match(token.BANG, token.MINUS) {
         expr, err := p.unary()
         if err != nil {
             return nil, err
         }
 
-        return tree.NewUnary(p.advance(), expr), nil
+        return ast.NewUnary(p.advance(), expr), nil
     }
 
     return p.primary()
 }
 
-func (p *Parser) primary() (tree.Expr, error){
+func (p *Parser) primary() (ast.Expr, error){
     if p.match(token.TRUE) {
-        return tree.NewLiteral(true), nil
+        return ast.NewLiteral(true), nil
     }
 
     if p.match(token.FALSE) {
-        return tree.NewLiteral(false), nil
+        return ast.NewLiteral(false), nil
     }
 
     if p.match(token.STRING, token.NUMBER) {
-        return tree.NewLiteral(p.previous().Literal()), nil
+        return ast.NewLiteral(p.previous().Literal()), nil
     }
 
     if p.match(token.IDENTIFIER) {
-        return tree.NewVariable(p.previous()), nil
+        return ast.NewVariable(p.previous()), nil
     }
 
     if p.match(token.LEFT_PAREN) {
@@ -282,7 +282,7 @@ func (p *Parser) primary() (tree.Expr, error){
 
         p.consume(token.RIGHT_PAREN, "Expected ')' after expression.")
 
-        return tree.NewGrouping(expr), nil
+        return ast.NewGrouping(expr), nil
     }
 
     return nil, p.error(p.peek(), "Expect expression.")

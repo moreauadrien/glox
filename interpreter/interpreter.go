@@ -5,19 +5,10 @@ import (
 	"glox/environement"
 	"glox/errors"
 	"glox/token"
-	"glox/tree"
+	"glox/ast"
 	"reflect"
 	"strings"
 )
-
-type returnWrapper struct {
-    value interface{}
-    err error
-}
-
-func newReturnWrapper(value interface{}, err error) returnWrapper {
-    return returnWrapper{value: value, err: err}
-}
 
 type Interpreter struct {
     env *environement.Env
@@ -27,7 +18,7 @@ func NewInterpreter() Interpreter {
     return Interpreter{env: environement.NewEnvironement(nil)}
 }
 
-func (i Interpreter) Interpret(statements []tree.Stmt) {
+func (i Interpreter) Interpret(statements []ast.Stmt) {
     for _, s := range statements {
         if err := i.execute(s); err != nil {
             errors.RuntimeError(err)
@@ -36,21 +27,134 @@ func (i Interpreter) Interpret(statements []tree.Stmt) {
     }
 }
 
-func (i Interpreter) execute(s tree.Stmt) error {
-    if err, ok := s.Accept(i).(error); ok {
-        return err
+func (i Interpreter) execute(s ast.Stmt) error {
+    return s.Accept(i)
+}
+
+func (i Interpreter) evaluate(expr ast.Expr) (interface{}, error) {
+    return expr.Accept(i)
+}
+
+func (i Interpreter) VisitLiteralExpr(expr *ast.Literal) (interface{}, error) {
+    return expr.Value, nil
+}
+
+func (i Interpreter) VisitGroupingExpr(expr *ast.Grouping) (interface{}, error) {
+    return i.evaluate(expr.Expression)
+}
+
+func (i Interpreter) VisitUnaryExpr(expr *ast.Unary) (interface{}, error) {
+    right, err := i.evaluate(expr.Right)
+    if err != nil {
+        return nil, err
     }
 
-    return nil
+    switch expr.Operator.Type() {
+    case token.BANG:
+        return !isTruthy(right), nil
+
+    case token.MINUS:
+        if err := checkNumberOperands(expr.Operator, right); err != nil {
+            return nil, err
+        }
+
+        return -right.(float64), nil
+    }
+
+    return nil, nil
 }
 
-func (i Interpreter) VisitBlockStmt(s *tree.Block) interface{} {
-    i.executeBlock(s.Statements, environement.NewEnvironement(i.env))
+func (i Interpreter) VisitBinaryExpr(expr *ast.Binary) (interface{}, error) {
+    left, err := i.evaluate(expr.Left)
+    if err != nil {
+        return nil, err
+    }
 
-    return nil
+    right, err := i.evaluate(expr.Right)
+    if err != nil {
+        return nil, err
+    }
+
+    if err := checkNumberOperands(expr.Operator, left, right); err != nil {
+        return nil, err
+    }
+
+    switch expr.Operator.Type() {
+    case token.MINUS:
+        return left.(float64) - right.(float64), nil
+        
+    case token.SLASH:
+        if right.(float64) == 0{
+            return nil, errors.NewRuntimeErr(expr.Operator, "Divisor must be different from 0")
+        }
+
+        return left.(float64) / right.(float64), nil
+
+    case token.STAR:
+        return left.(float64) * right.(float64), nil
+
+    case token.PLUS:
+        lF, lFOk := left.(float64)
+        rF, rFOk := right.(float64)
+
+        if lFOk && rFOk {
+            return lF + rF, nil
+        }
+
+        _, lSOk := left.(string)
+        _, rSOk := right.(string)
+
+        if lSOk || rSOk {
+            return stringify(left) + stringify(right), nil
+        }
+
+    case token.GREATER:
+        return left.(float64) > right.(float64), nil
+
+    case token.GREATER_EQUAL:
+        return left.(float64) >= right.(float64), nil
+
+    case token.LESS:
+        return left.(float64) < right.(float64), nil
+
+    case token.LESS_EQUAL:
+        return left.(float64) <= right.(float64), nil
+
+
+    case token.EQUAL_EQUAL:
+        return isEqual(left, right), nil
+
+    case token.BANG_EQUAL:
+        return !isEqual(left, right), nil
+    }
+
+
+    return nil, nil
 }
 
-func (i *Interpreter) executeBlock(statements []tree.Stmt, env *environement.Env) error {
+func (i Interpreter) VisitVariableExpr(e *ast.Variable) (interface{}, error) {
+    val, err := i.env.Get(e.Name)
+
+    return val, err
+}
+
+func (i Interpreter) VisitAssignExpr(expr *ast.Assign) (interface{}, error) {
+    val, err := i.evaluate(expr.Value)
+
+    if err != nil {
+        return nil, err
+    }
+
+    i.env.Assign(expr.Name, val)
+
+    return val, nil
+}
+
+func (i Interpreter) VisitBlockStmt(s *ast.Block) error {
+    return i.executeBlock(s.Statements, environement.NewEnvironement(i.env))
+}
+
+func (i *Interpreter) executeBlock(statements []ast.Stmt, env *environement.Env) error {
     prev := i.env
 
     restoreEnv := func () {
@@ -73,149 +177,36 @@ func (i *Interpreter) executeBlock(statements []tree.Stmt, env *environement.Env
     return nil
 }
 
-func (i Interpreter) evaluate(expr tree.Expr) interface{} {
-    return expr.Accept(i)
+func (i Interpreter) VisitExpressionStmt(s *ast.Expression) error {
+    _, err := i.evaluate(s.Exp)
+
+    return err
 }
 
-func (i Interpreter) VisitLiteralExpr(expr *tree.Literal) interface{} {
-    return newReturnWrapper(expr.Value, nil)
-}
+func (i Interpreter) VisitPrintStmt(s *ast.Print) error {
+    val, err := i.evaluate(s.Exp)
 
-func (i Interpreter) VisitGroupingExpr(expr *tree.Grouping) interface{} {
-    return i.evaluate(expr.Expression)
-}
-
-func (i Interpreter) VisitUnaryExpr(expr *tree.Unary) interface{} {
-    eval := i.evaluate(expr.Right).(returnWrapper)
-    if eval.err != nil {
-        return eval
+    if err != nil {
+        return err
     }
 
-    right := eval.value
-    
-
-    switch expr.Operator.Type() {
-    case token.BANG:
-        return newReturnWrapper(!isTruthy(right), nil)
-
-    case token.MINUS:
-        if err := checkNumberOperands(expr.Operator, right); err != nil {
-            return newReturnWrapper(nil, err)
-        }
-
-        return newReturnWrapper(-right.(float64), nil)
-    }
-
-    return newReturnWrapper(nil, nil)
-}
-
-func (i Interpreter) VisitBinaryExpr(expr *tree.Binary) interface{} {
-    evalLeft := i.evaluate(expr.Left).(returnWrapper)
-    evalRight := i.evaluate(expr.Right).(returnWrapper)
-
-    if evalLeft.err != nil {
-        return evalLeft
-    }
-
-    if evalRight.err != nil {
-        return evalRight
-    }
-
-    left := evalLeft.value
-    right := evalRight.value
-
-    if err := checkNumberOperands(expr.Operator, left, right); err != nil {
-        return newReturnWrapper(nil, err)
-    }
-
-    switch expr.Operator.Type() {
-    case token.MINUS:
-        return newReturnWrapper(left.(float64) - right.(float64), nil)
-        
-    case token.SLASH:
-        if right.(float64) == 0{
-            return newReturnWrapper(nil, errors.NewRuntimeErr(expr.Operator, "Divisor must be different from 0"))
-        }
-
-        return newReturnWrapper(left.(float64) / right.(float64), nil)
-
-    case token.STAR:
-        return newReturnWrapper(left.(float64) * right.(float64), nil)
-
-    case token.PLUS:
-        lF, lFOk := left.(float64)
-        rF, rFOk := right.(float64)
-
-        if lFOk && rFOk {
-            return newReturnWrapper(lF + rF, nil)
-        }
-
-        _, lSOk := left.(string)
-        _, rSOk := right.(string)
-
-        if lSOk || rSOk {
-            return newReturnWrapper(stringify(left) + stringify(right), nil)
-        }
-
-    case token.GREATER:
-        return newReturnWrapper(left.(float64) > right.(float64), nil)
-
-    case token.GREATER_EQUAL:
-        return newReturnWrapper(left.(float64) >= right.(float64), nil)
-
-    case token.LESS:
-        return newReturnWrapper(left.(float64) < right.(float64), nil)
-
-    case token.LESS_EQUAL:
-        return newReturnWrapper(left.(float64) <= right.(float64), nil)
-
-
-    case token.EQUAL_EQUAL:
-        return newReturnWrapper(isEqual(left, right), nil)
-
-    case token.BANG_EQUAL:
-        return newReturnWrapper(!isEqual(left, right), nil)
-    }
-
-
-    return newReturnWrapper(nil, nil)
-}
-
-func (i Interpreter) VisitExpressionStmt(s *tree.Expression) interface{} {
-    eval := i.evaluate(s.Exp).(returnWrapper)
-
-    return eval.err
-}
-
-func (i Interpreter) VisitPrintStmt(s *tree.Print) interface{} {
-    eval := i.evaluate(s.Exp).(returnWrapper)
-
-    if eval.err != nil {
-        return eval.err
-    }
-
-    fmt.Println(stringify(eval.value))
+    fmt.Println(stringify(val))
 
     return nil
 }
 
-func (i Interpreter) VisitVariableExpr(e *tree.Variable) interface{} {
-    val, err := i.env.Get(e.Name)
 
-    return newReturnWrapper(val, err)
-}
-
-func (i Interpreter) VisitVarStmt(s *tree.Var) interface{} {
+func (i Interpreter) VisitVarStmt(s *ast.Var) error {
     var value interface{}
 
     if s.Initializer != nil {
-        eval := i.evaluate(s.Initializer).(returnWrapper)
+        val, err := i.evaluate(s.Initializer)
         
-        if eval.err != nil {
-            return eval.err
+        if err != nil {
+            return err
         }
 
-        value = eval.value
+        value = val
     }
 
     i.env.Define(s.Name.Lexeme(), value)
@@ -223,19 +214,6 @@ func (i Interpreter) VisitVarStmt(s *tree.Var) interface{} {
     return nil
 }
 
-func (i Interpreter) VisitAssignExpr(expr *tree.Assign) interface{} {
-    eval := i.evaluate(expr.Value).(returnWrapper)
-
-    if eval.err != nil {
-        return eval
-    }
-
-    val := eval.value
-
-    i.env.Assign(expr.Name, val)
-
-    return newReturnWrapper(val, nil)
-}
 
 func checkNumberOperands(operator token.Token, operands ...interface{}) error {
     switch operator.Type() {

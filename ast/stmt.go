@@ -1,16 +1,16 @@
-package tree
+package ast
 
 import "glox/token"
 
 type Stmt interface {
-	Accept(VisitorStmt) interface{}
+	Accept(VisitorStmt) error
 }
 
 type VisitorStmt interface {
-	VisitBlockStmt(stmt *Block) interface{}
-	VisitExpressionStmt(stmt *Expression) interface{}
-	VisitPrintStmt(stmt *Print) interface{}
-	VisitVarStmt(stmt *Var) interface{}
+	VisitBlockStmt(stmt *Block) error
+	VisitExpressionStmt(stmt *Expression) error
+	VisitPrintStmt(stmt *Print) error
+	VisitVarStmt(stmt *Var) error
 }
 
 type Block struct {
@@ -21,7 +21,7 @@ func NewBlock(Statements []Stmt) *Block {
 	 return &Block{Statements: Statements}
 }
 
-func (e *Block) Accept(v VisitorStmt) interface{} {
+func (e *Block) Accept(v VisitorStmt) error {
 	return v.VisitBlockStmt(e)
 }
 
@@ -34,7 +34,7 @@ func NewExpression(Exp Expr) *Expression {
 	 return &Expression{Exp: Exp}
 }
 
-func (e *Expression) Accept(v VisitorStmt) interface{} {
+func (e *Expression) Accept(v VisitorStmt) error {
 	return v.VisitExpressionStmt(e)
 }
 
@@ -47,7 +47,7 @@ func NewPrint(Exp Expr) *Print {
 	 return &Print{Exp: Exp}
 }
 
-func (e *Print) Accept(v VisitorStmt) interface{} {
+func (e *Print) Accept(v VisitorStmt) error {
 	return v.VisitPrintStmt(e)
 }
 
@@ -61,7 +61,7 @@ func NewVar(Name token.Token, Initializer Expr) *Var {
 	 return &Var{Name: Name, Initializer: Initializer}
 }
 
-func (e *Var) Accept(v VisitorStmt) interface{} {
+func (e *Var) Accept(v VisitorStmt) error {
 	return v.VisitVarStmt(e)
 }
 

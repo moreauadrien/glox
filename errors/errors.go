@@ -19,7 +19,7 @@ func report(line int, where string, message string) {
 
 func Error(t token.Token, message string) {
     if t.Type() == token.EOF {
-        report(t.Line(), "at end", message)
+        report(t.Line(), " at end", message)
     } else {
         report(t.Line(), " at '" + t.Lexeme() + "'", message)
     }

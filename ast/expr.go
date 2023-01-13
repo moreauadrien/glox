@@ -1,18 +1,18 @@
-package tree
+package ast
 
 import "glox/token"
 
 type Expr interface {
-	Accept(VisitorExpr) interface{}
+	Accept(VisitorExpr) (interface{}, error)
 }
 
 type VisitorExpr interface {
-	VisitAssignExpr(expr *Assign) interface{}
-	VisitBinaryExpr(expr *Binary) interface{}
-	VisitGroupingExpr(expr *Grouping) interface{}
-	VisitLiteralExpr(expr *Literal) interface{}
-	VisitUnaryExpr(expr *Unary) interface{}
-	VisitVariableExpr(expr *Variable) interface{}
+	VisitAssignExpr(expr *Assign) (interface{}, error)
+	VisitBinaryExpr(expr *Binary) (interface{}, error)
+	VisitGroupingExpr(expr *Grouping) (interface{}, error)
+	VisitLiteralExpr(expr *Literal) (interface{}, error)
+	VisitUnaryExpr(expr *Unary) (interface{}, error)
+	VisitVariableExpr(expr *Variable) (interface{}, error)
 }
 
 type Assign struct {
@@ -24,7 +24,7 @@ func NewAssign(Name token.Token, Value Expr) *Assign {
 	 return &Assign{Name: Name, Value: Value}
 }
 
-func (e *Assign) Accept(v VisitorExpr) interface{} {
+func (e *Assign) Accept(v VisitorExpr) (interface{}, error) {
 	return v.VisitAssignExpr(e)
 }
 
@@ -39,7 +39,7 @@ func NewBinary(Left Expr, Operator token.Token, Right Expr) *Binary {
 	 return &Binary{Left: Left, Operator: Operator, Right: Right}
 }
 
-func (e *Binary) Accept(v VisitorExpr) interface{} {
+func (e *Binary) Accept(v VisitorExpr) (interface{}, error) {
 	return v.VisitBinaryExpr(e)
 }
 
@@ -52,7 +52,7 @@ func NewGrouping(Expression Expr) *Grouping {
 	 return &Grouping{Expression: Expression}
 }
 
-func (e *Grouping) Accept(v VisitorExpr) interface{} {
+func (e *Grouping) Accept(v VisitorExpr) (interface{}, error) {
 	return v.VisitGroupingExpr(e)
 }
 
@@ -65,7 +65,7 @@ func NewLiteral(Value interface{}) *Literal {
 	 return &Literal{Value: Value}
 }
 
-func (e *Literal) Accept(v VisitorExpr) interface{} {
+func (e *Literal) Accept(v VisitorExpr) (interface{}, error) {
 	return v.VisitLiteralExpr(e)
 }
 
@@ -79,7 +79,7 @@ func NewUnary(Operator token.Token, Right Expr) *Unary {
 	 return &Unary{Operator: Operator, Right: Right}
 }
 
-func (e *Unary) Accept(v VisitorExpr) interface{} {
+func (e *Unary) Accept(v VisitorExpr) (interface{}, error) {
 	return v.VisitUnaryExpr(e)
 }
 
@@ -92,7 +92,7 @@ func NewVariable(Name token.Token) *Variable {
 	 return &Variable{Name: Name}
 }
 
-func (e *Variable) Accept(v VisitorExpr) interface{} {
+func (e *Variable) Accept(v VisitorExpr) (interface{}, error) {
 	return v.VisitVariableExpr(e)
 }
 
