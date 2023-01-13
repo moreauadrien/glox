@@ -6,6 +6,7 @@ import (
 )
 
 var HadError = false
+var HadRuntimeError = false
 
 func ErrorAt(line int, message string) {
     report(line, "", message)
@@ -22,4 +23,9 @@ func Error(t token.Token, message string) {
     } else {
         report(t.Line(), " at '" + t.Lexeme() + "'", message)
     }
+}
+
+func RuntimeError(err error) {
+    fmt.Println(err.Error())
+    HadRuntimeError = true
 }

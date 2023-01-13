@@ -1,5 +1,6 @@
 package tree
 
+/*
 import (
 	"fmt"
 	"strings"
@@ -9,29 +10,29 @@ type AstPrinter struct {
 }
 
 func (p AstPrinter) Print(expr Expr) string {
-    s, _ := expr.accept(p).(string)
+    s, _ := expr.Accept(p).(string)
     
     return s
 }
 
-func (p AstPrinter) visitBinaryExpr(expr *Binary) interface{} {
-    return p.parenthesize(expr.operator.Lexeme(), expr.left, expr.right)
+func (p AstPrinter) VisitBinaryExpr(expr *Binary) interface{} {
+    return p.parenthesize(expr.Operator.Lexeme(), expr.Left, expr.Right)
 }
 
-func (p AstPrinter) visitGroupingExpr(expr *Grouping) interface{} {
-    return p.parenthesize("group", expr.expression)
+func (p AstPrinter) VisitGroupingExpr(expr *Grouping) interface{} {
+    return p.parenthesize("group", expr.Expression)
 }
 
-func (p AstPrinter) visitLiteralExpr(expr *Literal) interface{} {
-    if expr.value == nil {
+func (p AstPrinter) VisitLiteralExpr(expr *Literal) interface{} {
+    if expr.Value == nil {
         return nil
     } else {
-        return fmt.Sprintf("%v", expr.value)
+        return fmt.Sprintf("%v", expr.Value)
     }
 }
 
-func (p AstPrinter) visitUnaryExpr(expr *Unary) interface{} {
-    return p.parenthesize(expr.operator.Lexeme(), expr.right)
+func (p AstPrinter) VisitUnaryExpr(expr *Unary) interface{} {
+    return p.parenthesize(expr.Operator.Lexeme(), expr.Right)
 }
 
 func (p AstPrinter) parenthesize(name string, exprs ...Expr) string {
@@ -41,10 +42,11 @@ func (p AstPrinter) parenthesize(name string, exprs ...Expr) string {
 
     for _, expr := range exprs {
         b.WriteString(" ")
-        s, _ := expr.accept(p).(string)
+        s, _ := expr.Accept(p).(string)
         b.WriteString(s)
     }
     b.WriteString(")")
 
     return b.String()
 }
+*/

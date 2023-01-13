@@ -16,19 +16,147 @@ func NewParser(tokens []token.Token) Parser {
     return Parser{tokens: tokens, current: 0}
 }
 
-func (p *Parser) Parse() tree.Expr {
-    expr, err := p.expression()
+func (p *Parser) Parse() []tree.Stmt {
+    statements := []tree.Stmt{}
+
+    for !p.isAtEnd() {
+        statements = append(statements, p.declaration())
+    }
+
+    return statements
+}
+
+func (p *Parser) declaration() tree.Stmt {
+    var stmt tree.Stmt
+    var err error
+
+    if p.match(token.VAR) {
+        stmt, err = p.varDeclaration()
+    } else {
+        stmt, err = p.statements()
+    }
 
     if err != nil {
-        fmt.Printf("ParserError: %v\n", err.Error())
+        p.synchronize()
         return nil
     }
 
-    return expr
+    return stmt
+}
+
+
+func (p *Parser) statements() (tree.Stmt, error) {
+    if p.match(token.PRINT) {
+        return p.printStatement()
+    }
+
+    if p.match(token.LEFT_BRACE) {
+        block, err := p.block()
+
+        if err != nil {
+            return nil, err
+        }
+
+        return tree.NewBlock(block), nil
+    }
+
+    return p.expressionStatement()
+}
+
+func (p *Parser) printStatement() (tree.Stmt, error) {
+    val, err := p.expression()
+    if err != nil {
+        return nil, err
+    }
+
+    if _, err = p.consume(token.SEMICOLON, "Expected ';' after value."); err != nil {
+        return nil, err
+    }
+
+    return tree.NewPrint(val), nil
+}
+
+func (p *Parser) block() ([]tree.Stmt, error) {
+    statements := []tree.Stmt{}
+
+    for !p.check(token.RIGHT_BRACE) && !p.isAtEnd() {
+        statements = append(statements, p.declaration())
+    }
+
+    if _, err := p.consume(token.RIGHT_BRACE, "Expect '}' after block."); err != nil {
+        return nil, err
+    }
+
+    return statements, nil
+}
+
+func (p *Parser) varDeclaration() (tree.Stmt, error) {
+    name, err := p.consume(token.IDENTIFIER, "Expect variable name.")
+
+    if err != nil {
+        return nil, err
+    }
+
+    var initializer tree.Expr
+    if p.match(token.EQUAL) {
+        initializer, err = p.expression()
+
+        if err != nil {
+            return nil, err
+        }
+    }
+
+    _, err = p.consume(token.SEMICOLON, "Expect ';' after variable declaration.")
+
+    if err != nil {
+        return nil, err
+    }
+
+    return tree.NewVar(name, initializer), nil
+}
+
+func (p *Parser) expressionStatement() (tree.Stmt, error){
+    expr, err := p.expression()
+
+    if err != nil {
+        return nil, err
+    }
+
+    if _, err = p.consume(token.SEMICOLON, "Expected ';' after value."); err != nil {
+        return nil, err
+    }
+
+    return tree.NewExpression(expr), nil
 }
 
 func (p *Parser) expression() (tree.Expr, error) {
-    return p.equality()
+    return p.assignement()
+}
+
+func (p *Parser) assignement() (tree.Expr, error) {
+    expr, err := p.equality()
+
+    if err != nil {
+        return nil, err
+    }
+
+    if p.match(token.EQUAL) {
+        equals := p.previous()
+        value, err := p.assignement()
+
+        if err != nil {
+            return nil, err
+        }
+
+        if variable, ok := expr.(*tree.Variable); ok {
+            name := variable.Name
+            return tree.NewAssign(name, value), nil
+        }
+
+        errors.Error(equals, "Invalid assignement target.")
+    }
+
+    return expr, nil
 }
 
 func (p *Parser) equality() (tree.Expr, error) {
@@ -139,6 +267,10 @@ func (p *Parser) primary() (tree.Expr, error){
 
     if p.match(token.STRING, token.NUMBER) {
         return tree.NewLiteral(p.previous().Literal()), nil
+    }
+
+    if p.match(token.IDENTIFIER) {
+        return tree.NewVariable(p.previous()), nil
     }
 
     if p.match(token.LEFT_PAREN) {

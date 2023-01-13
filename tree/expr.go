@@ -3,66 +3,97 @@ package tree
 import "glox/token"
 
 type Expr interface {
-	accept(Visitor) interface{}
+	Accept(VisitorExpr) interface{}
 }
 
-type Visitor interface {
-	visitBinaryExpr(expr *Binary) interface{}
-	visitGroupingExpr(expr *Grouping) interface{}
-	visitLiteralExpr(expr *Literal) interface{}
-	visitUnaryExpr(expr *Unary) interface{}
+type VisitorExpr interface {
+	VisitAssignExpr(expr *Assign) interface{}
+	VisitBinaryExpr(expr *Binary) interface{}
+	VisitGroupingExpr(expr *Grouping) interface{}
+	VisitLiteralExpr(expr *Literal) interface{}
+	VisitUnaryExpr(expr *Unary) interface{}
+	VisitVariableExpr(expr *Variable) interface{}
 }
+
+type Assign struct {
+	Name token.Token
+	Value Expr
+}
+
+func NewAssign(Name token.Token, Value Expr) *Assign {
+	 return &Assign{Name: Name, Value: Value}
+}
+
+func (e *Assign) Accept(v VisitorExpr) interface{} {
+	return v.VisitAssignExpr(e)
+}
+
 
 type Binary struct {
-	left Expr
-	operator token.Token
-	right Expr
+	Left Expr
+	Operator token.Token
+	Right Expr
 }
 
-func NewBinary(left Expr, operator token.Token, right Expr) *Binary {
-	 return &Binary{left: left, operator: operator, right: right}
+func NewBinary(Left Expr, Operator token.Token, Right Expr) *Binary {
+	 return &Binary{Left: Left, Operator: Operator, Right: Right}
 }
 
-func (e *Binary) accept(v Visitor) interface{} {
-	return v.visitBinaryExpr(e)
+func (e *Binary) Accept(v VisitorExpr) interface{} {
+	return v.VisitBinaryExpr(e)
 }
 
 
 type Grouping struct {
-	expression Expr
+	Expression Expr
 }
 
-func NewGrouping(expression Expr) *Grouping {
-	 return &Grouping{expression: expression}
+func NewGrouping(Expression Expr) *Grouping {
+	 return &Grouping{Expression: Expression}
 }
 
-func (e *Grouping) accept(v Visitor) interface{} {
-	return v.visitGroupingExpr(e)
+func (e *Grouping) Accept(v VisitorExpr) interface{} {
+	return v.VisitGroupingExpr(e)
 }
 
 
 type Literal struct {
-	value interface{}
+	Value interface{}
 }
 
-func NewLiteral(value interface{}) *Literal {
-	 return &Literal{value: value}
+func NewLiteral(Value interface{}) *Literal {
+	 return &Literal{Value: Value}
 }
 
-func (e *Literal) accept(v Visitor) interface{} {
-	return v.visitLiteralExpr(e)
+func (e *Literal) Accept(v VisitorExpr) interface{} {
+	return v.VisitLiteralExpr(e)
 }
 
 
 type Unary struct {
-	operator token.Token
-	right Expr
+	Operator token.Token
+	Right Expr
 }
 
-func NewUnary(operator token.Token, right Expr) *Unary {
-	 return &Unary{operator: operator, right: right}
+func NewUnary(Operator token.Token, Right Expr) *Unary {
+	 return &Unary{Operator: Operator, Right: Right}
 }
 
-func (e *Unary) accept(v Visitor) interface{} {
-	return v.visitUnaryExpr(e)
+func (e *Unary) Accept(v VisitorExpr) interface{} {
+	return v.VisitUnaryExpr(e)
 }
+
+
+type Variable struct {
+	Name token.Token
+}
+
+func NewVariable(Name token.Token) *Variable {
+	 return &Variable{Name: Name}
+}
+
+func (e *Variable) Accept(v VisitorExpr) interface{} {
+	return v.VisitVariableExpr(e)
+}
+
+

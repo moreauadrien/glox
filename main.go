@@ -4,12 +4,14 @@ import (
 	"bufio"
 	"fmt"
 	"glox/errors"
+	"glox/interpreter"
 	"glox/parser"
 	"glox/scanner"
-	"glox/tree"
 	"io"
 	"os"
 )
+
+var interp = interpreter.NewInterpreter()
 
 func main() {
     args := os.Args
@@ -35,6 +37,10 @@ func runFile(path string) error {
 
     if errors.HadError {
         os.Exit(65)
+    }
+
+    if errors.HadRuntimeError {
+        os.Exit(70)
     }
 
     return nil
@@ -69,13 +75,11 @@ func run(source string) {
     tokens := s.ScanTokens()
 
     p := parser.NewParser(tokens)
-    expr := p.Parse()
+    statements := p.Parse()
 
     if errors.HadError {
         return
     }
 
-    fmt.Println(tree.AstPrinter{}.Print(expr))
-
+    interp.Interpret(statements)
 }
-
