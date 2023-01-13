@@ -22,6 +22,7 @@ func main() {
 		"Binary   : Left Expr, Operator token.Token, Right Expr",
 		"Grouping : Expression Expr",
 		"Literal  : Value interface{}",
+        "Logical  : Left Expr, Operator token.Token, Right Expr",
 		"Unary    : Operator token.Token, Right Expr",
 		"Variable : Name token.Token",
 	}, "(interface{}, error)")
@@ -31,6 +32,8 @@ func main() {
 		"Expression : Exp Expr",
 		"Print      : Exp Expr",
 		"Var        : Name token.Token, Initializer Expr",
+        "If         : Condition Expr, ThenBranch Stmt, ElseBranch Stmt",
+        "While      : Condition Expr, Body Stmt",
 	}, "error")
 }
 
