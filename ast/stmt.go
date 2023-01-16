@@ -9,9 +9,11 @@ type Stmt interface {
 type VisitorStmt interface {
 	VisitBlockStmt(stmt *Block) error
 	VisitExpressionStmt(stmt *Expression) error
-	VisitPrintStmt(stmt *Print) error
-	VisitVarStmt(stmt *Var) error
+	VisitFunctionStmt(stmt *Function) error
 	VisitIfStmt(stmt *If) error
+	VisitPrintStmt(stmt *Print) error
+	VisitReturnStmt(stmt *Return) error
+	VisitVarStmt(stmt *Var) error
 	VisitWhileStmt(stmt *While) error
 }
 
@@ -41,30 +43,18 @@ func (e *Expression) Accept(v VisitorStmt) error {
 }
 
 
-type Print struct {
-	Exp Expr
-}
-
-func NewPrint(Exp Expr) *Print {
-	 return &Print{Exp: Exp}
-}
-
-func (e *Print) Accept(v VisitorStmt) error {
-	return v.VisitPrintStmt(e)
-}
-
-
-type Var struct {
+type Function struct {
 	Name token.Token
-	Initializer Expr
+	Params []token.Token
+	Body []Stmt
 }
 
-func NewVar(Name token.Token, Initializer Expr) *Var {
-	 return &Var{Name: Name, Initializer: Initializer}
+func NewFunction(Name token.Token, Params []token.Token, Body []Stmt) *Function {
+	 return &Function{Name: Name, Params: Params, Body: Body}
 }
 
-func (e *Var) Accept(v VisitorStmt) error {
-	return v.VisitVarStmt(e)
+func (e *Function) Accept(v VisitorStmt) error {
+	return v.VisitFunctionStmt(e)
 }
 
 
@@ -80,6 +70,47 @@ func NewIf(Condition Expr, ThenBranch Stmt, ElseBranch Stmt) *If {
 
 func (e *If) Accept(v VisitorStmt) error {
 	return v.VisitIfStmt(e)
+}
+
+
+type Print struct {
+	Exp Expr
+}
+
+func NewPrint(Exp Expr) *Print {
+	 return &Print{Exp: Exp}
+}
+
+func (e *Print) Accept(v VisitorStmt) error {
+	return v.VisitPrintStmt(e)
+}
+
+
+type Return struct {
+	Keyword token.Token
+	Value Expr
+}
+
+func NewReturn(Keyword token.Token, Value Expr) *Return {
+	 return &Return{Keyword: Keyword, Value: Value}
+}
+
+func (e *Return) Accept(v VisitorStmt) error {
+	return v.VisitReturnStmt(e)
+}
+
+
+type Var struct {
+	Name token.Token
+	Initializer Expr
+}
+
+func NewVar(Name token.Token, Initializer Expr) *Var {
+	 return &Var{Name: Name, Initializer: Initializer}
+}
+
+func (e *Var) Accept(v VisitorStmt) error {
+	return v.VisitVarStmt(e)
 }
 
 

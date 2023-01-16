@@ -8,14 +8,24 @@ import (
 	"glox/token"
 	"reflect"
 	"strings"
+	"time"
 )
 
 type Interpreter struct {
 	env *environement.Env
+    globalEnv *environement.Env
 }
 
 func NewInterpreter() Interpreter {
-	return Interpreter{env: environement.NewEnvironement(nil)}
+    env := environement.NewEnvironement(nil)
+    env.Define("clock", NativeFunction{
+        arity: 0,
+        call: func(_ *Interpreter, _ []interface{}) (interface{}, error) {
+            return float64(time.Now().UnixMilli()) / 1000, nil
+        },
+    })
+
+	return Interpreter{env: env, globalEnv: env}
 }
 
 func (i *Interpreter) Interpret(statements []ast.Stmt) {
@@ -130,6 +140,36 @@ func (i *Interpreter) VisitBinaryExpr(expr *ast.Binary) (interface{}, error) {
 	return nil, nil
 }
 
+func (i *Interpreter) VisitCallExpr(e *ast.Call) (interface{}, error) {
+    callee, err := i.evaluate(e.Callee)
+    if err != nil {
+        return nil, err
+    }
+
+    args := []interface{}{}
+
+    for _, arg := range e.Arguments {
+        val, err := i.evaluate(arg)
+        if err != nil {
+            return nil, err
+        }
+
+        args = append(args, val)
+    }
+    
+    function, ok := callee.(Callable)
+
+    if !ok {
+        return nil, errors.NewRuntimeErr(e.Paren, "Can only call functions and classes.")
+    }
+
+    if len(args) != function.Arity() {
+        return nil, errors.NewRuntimeErr(e.Paren, fmt.Sprintf("Expected %v arguments but got %v.", function.Arity(), len(args)))
+    }
+    
+    return function.Call(i, args)
+}
+
 func (i *Interpreter) VisitLogicalExpr(e *ast.Logical) (interface{}, error) {
 	left, err := i.evaluate(e.Left)
 	if err != nil {
@@ -205,6 +245,13 @@ func (i *Interpreter) VisitExpressionStmt(s *ast.Expression) error {
 	return err
 }
 
+func (i *Interpreter) VisitFunctionStmt(s *ast.Function) error {
+    fn := NewFunction(*s, i.env)
+    i.env.Define(s.Name.Lexeme(), fn)
+
+    return nil
+}
+
 func (i *Interpreter) VisitPrintStmt(s *ast.Print) error {
 	val, err := i.evaluate(s.Exp)
 
@@ -215,6 +262,21 @@ func (i *Interpreter) VisitPrintStmt(s *ast.Print) error {
 	fmt.Println(stringify(val))
 
 	return nil
+}
+
+func (i *Interpreter) VisitReturnStmt(s *ast.Return) error {
+    var value interface{}
+    
+    if s.Value != nil {
+        val, err := i.evaluate(s.Value)
+        if err != nil {
+            return err
+        }
+
+        value = val
+    }
+
+    return Return{value}
 }
 
 func (i *Interpreter) VisitVarStmt(s *ast.Var) error {
@@ -251,7 +313,7 @@ func (i *Interpreter) VisitIfStmt(s *ast.If) error {
 }
 
 func (i *Interpreter) VisitWhileStmt(s *ast.While) error {
-    for true {
+    for {
         val, err := i.evaluate(s.Condition)
 
         if err != nil {
@@ -309,10 +371,10 @@ func stringify(obj interface{}) string {
 	}
 
 	if _, ok := obj.(float64); ok {
-		text := fmt.Sprintf("%v", obj)
+		text := fmt.Sprintf("%f", obj)
 
-		if strings.HasSuffix(text, ".0") {
-			text = text[:len(text)-2]
+		if strings.HasSuffix(text, ".000000") {
+			text = text[:len(text)-7]
 		}
 
 		return text
